@@ -44,7 +44,7 @@ local PARAMETERS_NEW_VALUE = {}
 -- get motors updated PWM value
 local function updateMotorsPWM()
     local channel
-    for i = 1, numMotors-1, 1 do
+    for i = 1, numMotors, 1 do
         channel     = motorsChannel[i]
         motorsPWM[i]= SRV_Channels:get_output_pwm(channel)
         -- gcs:send_text(0, string.format("motor %d = %d", i, motorsPWM[i]))
@@ -62,7 +62,7 @@ local function isAnyMotorOutsidePWMRange()
             --gcs:send_text(6, string.format("motor %d is NOT OK, PWM = %d", i, motorPWM ))
             return true
         end
-        gcs:send_text(0, string.format("motorPWM %d is OK, value %d", i, motorPWM ))
+        --gcs:send_text(0, string.format("motorPWM %d is OK, value %d", i, motorPWM ))
     end
     -- if nothing else returned true, then we should return false
     -- gcs:send_text(0, string.format("everything OK, returning false"))
