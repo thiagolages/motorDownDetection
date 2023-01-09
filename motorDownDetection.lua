@@ -1,3 +1,4 @@
+-- code by Thiago Lages (github: @thiagolages)
 -- variables
 local numMotors           = 6       -- total number of motors
 local motorsPWM           = {}      -- motorsPWM array
