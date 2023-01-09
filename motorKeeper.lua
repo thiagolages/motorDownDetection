@@ -94,10 +94,6 @@ end
 -- action to be taken in case the aircraft loses a motor
 local function motorDownAction()
 
-    if (startTime == -1) then
-        startTime = millis()
-    end
-
     -- send message
     gcs:send_text(6, "[motorKeeper.lua] Motor Down")
 
