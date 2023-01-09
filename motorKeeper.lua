@@ -47,27 +47,31 @@ local function updateMotorsPWM()
     for i = 1, numMotors-1, 1 do
         channel     = motorsChannel[i]
         motorsPWM[i]= SRV_Channels:get_output_pwm(channel)
+        gcs:send_text(0, string.format("motor %d = %d", i, motorsPWM[i]))
     end
 end
 
 -- check if motors PWM is in healthy range
-local function areMotorsWithinPWMRange()
+local function areMotorsOutsidePWMRange()
 
     local motorPWM = -1
 
     for i = 1, numMotors-1, 1 do
         motorPWM = motorsPWM[i]
         if (motorPWM >= PWMmax or motorPWM < PWMmin) then
-            return false
+            gcs:send_text(0, string.format("motorPWM %d is NOT OK, value %d, returning true", i, motorPWM ))
+            return true
         end
+        gcs:send_text(0, string.format("motorPWM %d is OK, value %d", i, motorPWM ))
     end
-    -- if nothing else returned false, then we should return true
-    return true
+    -- if nothing else returned true, then we should return false
+    gcs:send_text(0, string.format("everything OK, returning false"))
+    return false
 end
 
 -- check if any motors are down
 local function isMotorDown()
-    return areMotorsWithinPWMRange()
+    return areMotorsOutsidePWMRange()
 end
 
 local function setParamsNewValue()
@@ -159,18 +163,18 @@ local function setup()
 
     getInitialParams()
     calculateParamsNewValue()
-    printParamsNewValue()
+    -- printParamsNewValue()
     
 end
 
 -- main loop function
 local function loop()
     motorkeeper()
-    return loop, 100 -- run every 100ms
+    return loop, 2000 -- run every 100ms
 end
 
 
 gcs:send_text(6, "motorKeeper.lua is running")
 setup() -- setup parameters and everythig else that needs a setup
 
--- return loop(), 10000 -- run 10s after start
+return loop(), 10000 -- run 10s after start
