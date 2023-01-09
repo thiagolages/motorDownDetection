@@ -1,3 +1,4 @@
+-- This script is intended to be used inside a CubeOrange Autopilot running ArduCopter v4.3+
 -- script to check for possible motor failure and take action, if needed
 -- by changing some parameters in-flight
 
@@ -7,16 +8,20 @@ local motorsPWM = {-1, -1, -1, -1, -1, -1}  -- motorsPWM array
 local motorsChannel = {37, 38, 35, 36, 34, 33}
 
 -- modes and channel numbers
+local MODE_AUTO             = 3
 local MODE_SMART_RTL        = 21
 local CHANNEL_PAYLOAD       = 28
 local PAYLOAD_RELEASE_PWM   = 1600
 
+-- time control
+local WAIT_TIME_MOTOR_DOWN  = 1000  -- time to wait before considering a motor failure, in milliseconds
+local WAIT_TIME_MODE_AUTO   = 500   -- time to wait after entering AUTO mode, to look for potential motor failure, in milliseconds
+local startTime             = -1    -- to control total motor failure time; helps to determine if it's a real failure or not
+local startTimeModeAuto     = -1    -- to control time after entering auto mode
+
 -- local PWMmax = param:get("MOT_PWM_MAX")
 local PWMmin = 1100 -- CHECK THIS VALUE BEFORE USING IN AIRCRAFT
 local PWMmax = 1940
-
--- local isGripOpen =  param:get("GRIP_RELEASE")
-local startTime = -1
 
 -- parameters that will be changed in case the aircraft loses a motor
 local PARAMETERS_NAMES = {
@@ -47,7 +52,7 @@ local function updateMotorsPWM()
     for i = 1, numMotors, 1 do
         channel     = motorsChannel[i]
         motorsPWM[i]= SRV_Channels:get_output_pwm(channel)
-        -- gcs:send_text(0, string.format("motor %d = %d", i, motorsPWM[i]))
+        -- gcs:send_text(6, string.format("motor %d = %d", i, motorsPWM[i]))
     end
 end
 
@@ -57,37 +62,44 @@ local function isAnyMotorOutsidePWMRange()
     local motorPWM = -1
 
     for i = 1, numMotors, 1 do
+        -- gcs:send_text(6, string.format("i = %d", i))
         motorPWM = motorsPWM[i]
-        if (motorPWM >= PWMmax or motorPWM < PWMmin) then
-            --gcs:send_text(6, string.format("motor %d is NOT OK, PWM = %d", i, motorPWM ))
-            return true
+        if (motorPWM ~= nil) then
+            if (motorPWM >= PWMmax or motorPWM < PWMmin) then
+                gcs:send_text(6, string.format("motor %d is NOT OK, PWM = %d", i, motorPWM ))
+                return true
+            end
+            -- gcs:send_text(6, string.format("motorPWM %d is OK, value %d", i, motorPWM ))
+        else
+            gcs:send_text(6, string.format("motorPWM %d is nil", i))
         end
-        --gcs:send_text(0, string.format("motorPWM %d is OK, value %d", i, motorPWM ))
     end
     -- if nothing else returned true, then we should return false
-    -- gcs:send_text(0, string.format("everything OK, returning false"))
+    -- gcs:send_text(6, string.format("everything OK, returning false"))
     return false
 end
 
 -- check if any motors are down
 local function isMotorDown()
-    while isAnyMotorOutsidePWMRange() do
+    if (isAnyMotorOutsidePWMRange()) then
+
         if (startTime <= 0) then
             startTime = millis()
         end
-        if(millis() - startTime >= 1000) then
+
+        -- if motors are down for more than WAIT_TIME_MOTOR_DOWN milliseconds
+        if (millis() >= startTime + WAIT_TIME_MOTOR_DOWN) then
             return true
         end
     end
-    -- reset startTime if no motors are down
-    startTime = -1
+
     return false
 end
 
 local function setParamsNewValue()
     for index, paramName in ipairs(PARAMETERS_NAMES) do
         param:set(paramName, PARAMETERS_NEW_VALUE[paramName])
-        gcs:send_text(0, string.format("[motorKeeper.lua] Changing %s to %f", paramName, PARAMETERS_NEW_VALUE[paramName]))
+        gcs:send_text(6, string.format("[motorKeeper.lua] Changing %s to %f", paramName, PARAMETERS_NEW_VALUE[paramName]))
     end
 end
 
@@ -95,10 +107,10 @@ end
 local function motorDownAction()
 
     -- send message
-    gcs:send_text(6, "[motorKeeper.lua] Motor Down")
+    gcs:send_text(0, "[motorKeeper.lua] Motor Down")
 
     -- release payload
-    gcs:send_text(6, "[motorKeeper.lua] Releasing paylod")
+    gcs:send_text(0, "[motorKeeper.lua] Releasing paylod")
     SRV_Channels:set_output_pwm(CHANNEL_PAYLOAD,PAYLOAD_RELEASE_PWM)
 
     -- change parameters
@@ -106,7 +118,7 @@ local function motorDownAction()
     setParamsNewValue()
 
     -- change flght mode to smartRTL
-    gcs:send_text(6, "[motorKeeper.lua] Changind mode to SMART_RTL")
+    gcs:send_text(0, "[motorKeeper.lua] Changing mode to SMART_RTL")
     vehicle:set_mode(MODE_SMART_RTL)
 
 end
@@ -119,10 +131,15 @@ local function motorkeeper()
     updateMotorsPWM()
 
     -- check if any motors have stopped
-    if (isMotorDown()) then
-        motorDownAction()
+    local mode = vehicle:get_mode()
+    if(mode == MODE_AUTO) then
+        startTimeModeAuto = millis()
+        if ((millis() - startTimeModeAuto >= WAIT_TIME_MODE_AUTO) and isMotorDown()) then
+            motorDownAction()
+        end
     end
 
+    return motorkeeper, 1000 -- run every 100ms
 end
 
 -- get initial parameters that will be changed in case the aircraft loses a motor
@@ -130,7 +147,7 @@ local function getInitialParams()
     -- fill PARAMETERS table with initial parameters
     for i, paramName in ipairs(PARAMETERS_NAMES) do
         PARAMETERS[paramName] = param:get(paramName)
-        gcs:send_text(0, string.format("%s initial value is %f", paramName, PARAMETERS[paramName]))
+        gcs:send_text(6, string.format(" %s initial value is %f", paramName, PARAMETERS[paramName]))
     end
 end
 
@@ -156,27 +173,21 @@ end
 
 local function printParamsNewValue()
     for i, paramName in ipairs(PARAMETERS_NAMES) do
-        gcs:send_text(0, string.format("%s new value is %f", paramName, PARAMETERS_NEW_VALUE[paramName]))
+        gcs:send_text(6, string.format("%s new value is %f", paramName, PARAMETERS_NEW_VALUE[paramName]))
     end
 end
 
 -- setup function
-local function setup()
+local function setupMotorKeeper()
 
     getInitialParams()
     calculateParamsNewValue()
-    -- printParamsNewValue()
+    printParamsNewValue()
     
-end
-
--- main loop function
-local function loop()
-    motorkeeper()
-    return loop, 2000 -- run every 100ms
 end
 
 
 gcs:send_text(6, "motorKeeper.lua is running")
-setup() -- setup parameters and everythig else that needs a setup
+setupMotorKeeper() -- setup parameters and everythig else that needs a setup
 
-return loop(), 5000 -- run 5s after start
+return motorkeeper(), 5000 -- run 5s after start
