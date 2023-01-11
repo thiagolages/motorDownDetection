@@ -8,7 +8,7 @@ local motorsPWM = {-1, -1, -1, -1, -1, -1}  -- motorsPWM array
 local motorsChannel = {37, 38, 35, 36, 34, 33}
 
 -- modes and channel numbers
-local MODE_AUTO             = 3
+local MODE_ALT_HOLD         = 2
 local MODE_AUTO             = 3
 local MODE_SMART_RTL        = 21
 local CHANNEL_PAYLOAD       = 28
@@ -22,8 +22,8 @@ local startTimeMotorDown                = -1    -- to control total motor failur
 local startTimeModeAuto                 = -1    -- to control time after entering auto mode
 
 -- local PWMmax = param:get("MOT_PWM_MAX")
-local PWMmin = 1200 -- CHECK THIS VALUE BEFORE USING IN AIRCRAFT
-local PWMmax = 1920
+local PWMmin = 1150 -- CHECK THIS VALUE BEFORE USING IN AIRCRAFT
+local PWMmax = 1930
 
 -- parameters that will be changed in case the aircraft loses a motor
 local PARAMETERS_NAMES = {
@@ -91,6 +91,9 @@ local function isMotorDown()
         if(millis() - startTimeMotorDown >= WAIT_TIME_MOTOR_DOWN) then
             return true
         end
+    else
+        -- restart counting initial motor down time
+        startTimeMotorDown = -1
     end
 
     return false
