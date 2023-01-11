@@ -22,8 +22,8 @@ local startTimeMotorDown                = -1    -- to control total motor failur
 local startTimeModeAuto                 = -1    -- to control time after entering auto mode
 
 -- local PWMmax = param:get("MOT_PWM_MAX")
-local PWMmin = 1150 -- CHECK THIS VALUE BEFORE USING IN AIRCRAFT
-local PWMmax = 1930
+local PWMmin = 1290 -- minimum value in crash log: 1284
+local PWMmax = 1890 -- maximum value in crash log: 1898
 
 -- parameters that will be changed in case the aircraft loses a motor
 local PARAMETERS_NAMES = {
@@ -141,7 +141,7 @@ local function motorkeeper()
 
     -- check if any motors have stopped
     local mode = vehicle:get_mode()
-    if(mode == MODE_AUTO) then
+    if(mode == MODE_AUTO and vehicle:is_armed()) then
         gcs:send_text(0, "[motorKeeper.lua] mode AUTO")
         if (startTimeModeAuto <= 0)then
             gcs:send_text(0, "[motorKeeper.lua] starting to count startTimeModeAuto")
@@ -160,6 +160,8 @@ local function motorkeeper()
                 end
             end
         end
+    else
+        startTimeModeAuto = -1
     end
 
     return motorkeeper, 50 -- run every 50ms

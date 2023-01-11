@@ -131,7 +131,7 @@ local function motorkeeper()
 
     -- check if any motors have stopped
     local mode = vehicle:get_mode()
-    if(mode == MODE_AUTO) then
+    if(mode == MODE_AUTO and vehicle:is_armed()) then
         -- gcs:send_text(6, "[motorKeeper.lua] mode AUTO")
         if (startTimeModeAuto <= 0)then
             gcs:send_text(6, "[motorKeeper.lua] starting to count startTimeModeAuto")
@@ -144,6 +144,8 @@ local function motorkeeper()
                 motorDownAction()
             end
         end
+    else
+        startTimeModeAuto = -1
     end
 
     return motorkeeper, 50 -- run every 50ms
