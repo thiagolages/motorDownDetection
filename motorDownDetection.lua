@@ -19,6 +19,16 @@ local numMotors             = 6                         -- total number of motor
 local motorsPWM             = { -1, -1, -1, -1, -1, -1} -- motorsPWM array
 local motorsChannel         = { 37, 38, 35, 36, 34, 33 }--{ 33, 34, 35, 36, 37, 38}
 
+------------------------------------------------------------------------------------------------------------------------------
+-- Uncomment if using on a quad simulator (like Gazebo Iris), and comment above 'numMotors', 'motorsPWM' and 'motorsChannel'
+
+-- local numMotors      = 4
+-- local motorsPWM      = { -1, -1, -1, -1} -- motorsPWM array
+-- local motorsChannel  = { 37, 38, 35, 36 }
+
+-- Also, change COPTER_MODE_AUTO inside 'motorDownDetection' function to any other mode you want.
+------------------------------------------------------------------------------------------------------------------------------
+
 local timeSinceAuto         = -1    -- will be used to enable or nor some checks
 local finishedTakeoff       = false -- will be used to run code only if we are taking off
 local sentDisarmMessage     = false -- to send disarm message only once
