@@ -48,8 +48,8 @@ local yaw_rate  -- gyro in Z axis (rad/s) - yaw
 -- Safety checks
 
 -- Safety check by RP angles (degrees)
-ROLL_ANGLE_THRESH   = 10
-PITCH_ANGLE_THRESH  = 10
+ROLL_ANGLE_THRESH   = 13
+PITCH_ANGLE_THRESH  = 13
 
 -- Safety check by RPY rates (radians/s)
 local ROLL_RATE_THRESH   = 0.80
