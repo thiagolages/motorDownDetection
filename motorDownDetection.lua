@@ -93,12 +93,12 @@ local function getAircraftData()
 end
 
 local function RPAnglesOK() -- true if OK
-    gcs:send_text(6, string.format("[motorDownDetection.lua] rpy = %.2f,%.2f,%.2f", roll, pitch, yaw))
+    --gcs:send_text(6, string.format("[motorDownDetection.lua] rpy = %.2f,%.2f,%.2f", roll, pitch, yaw))
     return(math.abs(roll) <= ROLL_ANGLE_THRESH and math.abs(pitch) <= PITCH_ANGLE_THRESH)
 end
 
 local function RPYRatesOK() -- true if OK
-    gcs:send_text(6, string.format("[motorDownDetection.lua] rpyRates = %.2f,%.2f,%.2f", roll_rate, pitch_rate, yaw_rate))
+    --gcs:send_text(6, string.format("[motorDownDetection.lua] rpyRates = %.2f,%.2f,%.2f", roll_rate, pitch_rate, yaw_rate))
     return(math.abs(roll_rate) <= ROLL_RATE_THRESH and math.abs(pitch_rate) <= PITCH_RATE_THRESH and math.abs(yaw_rate) <= YAW_RATE_THRESH)
 end
 
@@ -107,10 +107,10 @@ local function isMotorPWMOK(motorNum, motorPWM)
 
     if (motorPWM ~= nil) then
         if (motorPWM >= MOTOR_PWM_THRESH_MIN and motorPWM <= MOTOR_PWM_THRESH_MAX) then
-            gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is OK, PWM = %d", motorNum, motorPWM ))    
+            --gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is OK, PWM = %d", motorNum, motorPWM ))    
             return true
         else
-            gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
+            --gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
             return false
         end
     else
@@ -168,7 +168,7 @@ end
 local function motorDownAction()
     arming:disarm() -- disarm first
     if (not sentDisarmMessage) then
-        gcs:send_text(6, string.format("[motorDownDetection.lua] Motor Down !"))
+        gcs:send_text(6, string.format("[motorDownDetection.lua] Motor Failure !"))
         gcs:send_text(6, string.format("[motorDownDetection.lua] Disarming drone !"))
     end
     sentDisarmMessage = true
@@ -181,7 +181,7 @@ end
 local function checkTakeoffStatus() -- true means "taking off", false otherwise
 
     if (finishedTakeoff) then
-        gcs:send_text(6, "[motorDownDetector.lua] NOT running code anymore")
+        --gcs:send_text(6, "[motorDownDetector.lua] NOT running code anymore")
         return false -- if we finished motor dection, return immediately
     end
 
@@ -213,7 +213,7 @@ end
 
 local function handleStartTimeModeAuto()
     if ( startTimeModeAuto == -1 ) then -- will only run in the first time we enter AUTO mode
-        gcs:send_text(6, "[motorDownDetector.lua] starting to count startTimeModeAuto")
+        --gcs:send_text(6, "[motorDownDetector.lua] starting to count startTimeModeAuto")
         startTimeModeAuto = millis()
     end
 end
