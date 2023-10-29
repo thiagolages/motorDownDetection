@@ -107,14 +107,22 @@ end
 
 -- Checks if Roll, Pith and Yaw angles are within the normal range (in degrees). Returns true if all is OK
 local function RPAnglesOK()
-    --gcs:send_text(6, string.format("[motorDownDetection.lua] rpy = %.2f,%.2f,%.2f", roll, pitch, yaw))
-    return(math.abs(roll) <= ROLL_ANGLE_THRESH and math.abs(pitch) <= PITCH_ANGLE_THRESH)
+    local anglesOK = (math.abs(roll) <= ROLL_ANGLE_THRESH and math.abs(pitch) <= PITCH_ANGLE_THRESH)
+    if (not anglesOK) then -- print cause of motor stop detection
+       gcs:send_text(6, string.format("[motorDownDetection] rpy = %.2f,%.2f,%.2f", roll, pitch, yaw))
+       gcs:send_text(6, string.format("[motorDownDetection] rp threshold (abs) = %.2f,%.2f", ROLL_ANGLE_THRESH, PITCH_ANGLE_THRESH))
+    end
+    return (anglesOK)
 end
 
 -- Checks if Roll, Pith and Yaw rates (angular velocities) are within the normal range (in radians/s). Returns true if all is OK
 local function RPYRatesOK()
-    --gcs:send_text(6, string.format("[motorDownDetection.lua] rpyRates = %.2f,%.2f,%.2f", roll_rate, pitch_rate, yaw_rate))
-    return(math.abs(roll_rate) <= ROLL_RATE_THRESH and math.abs(pitch_rate) <= PITCH_RATE_THRESH and math.abs(yaw_rate) <= YAW_RATE_THRESH)
+    local ratesOK = (math.abs(roll_rate) <= ROLL_RATE_THRESH and math.abs(pitch_rate) <= PITCH_RATE_THRESH and math.abs(yaw_rate) <= YAW_RATE_THRESH)
+    if (not ratesOK) then -- print cause of motor stop detection
+       gcs:send_text(6, string.format("[motorDownDetection] rpyRates = %.2f,%.2f,%.2f", roll_rate, pitch_rate, yaw_rate))
+       gcs:send_text(6, string.format("[motorDownDetection] rpyRates threshold (abs) = %.2f,%.2f,%.2f", ROLL_RATE_THRESH, PITCH_RATE_THRESH, YAW_RATE_THRESH))
+    end
+    return(ratesOK)
 end
 
 -- Checks if motors PWM is in healthy range
@@ -122,14 +130,14 @@ local function isMotorPWMOK(motorNum, motorPWM)
 
     if (motorPWM ~= nil) then
         if (motorPWM >= MOTOR_PWM_THRESH_MIN and motorPWM <= MOTOR_PWM_THRESH_MAX) then
-            --gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is OK, PWM = %d", motorNum, motorPWM ))    
+            --gcs:send_text(6, string.format("[motorDownDetection] motor %d is OK, PWM = %d", motorNum, motorPWM ))    
             return true
         else
-            --gcs:send_text(6, string.format("[motorDownDetection.lua] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
+            --gcs:send_text(6, string.format("[motorDownDetection] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
             return false
         end
     else
-        gcs:send_text(6, string.format("[motorDownDetection.lua] PWM from motor %d is nil", motorNum))
+        gcs:send_text(6, string.format("[motorDownDetection] PWM from motor %d is nil", motorNum))
         return true -- return true because we don't have information on it
     end
 
@@ -165,7 +173,8 @@ local function areMotorsPWMOK()
             local timeSinceMotorDown = millis() - startTimeMotorDown
 
             if(timeSinceMotorDown >= WAIT_TIME_MOTOR_DOWN_MS) then
-                gcs:send_text(6, string.format("[motorDownDetection.lua] Duration of PWM value is >= %d ms!",WAIT_TIME_MOTOR_DOWN_MS))
+                gcs:send_text(6, string.format("[motorDownDetection] Duration of PWM value is >= %d ms!",WAIT_TIME_MOTOR_DOWN_MS))
+                gcs:send_text(6, string.format("[motorDownDetection] Motors PWM min/max threshold = %d, %d", MOTOR_PWM_THRESH_MIN, MOTOR_PWM_THRESH_MAX))
                 return false
             else -- if motors are not outside PWM range for at least WAIT_TIME_MOTOR_DOWN_MS, we are ok
                 return true
@@ -189,8 +198,8 @@ end
 local function motorDownAction()
     arming:disarm() -- disarm first
     if (not sentDisarmMessage) then
-        gcs:send_text(6, string.format("[motorDownDetection.lua] Motor Failure !"))
-        gcs:send_text(6, string.format("[motorDownDetection.lua] Disarming drone !"))
+        gcs:send_text(6, string.format("[motorDownDetection] Motor Failure !"))
+        gcs:send_text(6, string.format("[motorDownDetection] Disarming drone !"))
     end
     sentDisarmMessage = true
 end
@@ -204,7 +213,7 @@ end
 local function checkTakeoffStatus()
 
     if (finishedTakeoff) then
-        --gcs:send_text(6, "[motorDownDetector.lua] NOT running code anymore")
+        --gcs:send_text(6, "[motorDownDetection] NOT running code anymore")
         return false -- if we finished motor dection, return immediately
     end
 
@@ -238,7 +247,7 @@ end
 -- Handles initialization startTimeModeAuto counter
 local function handleStartTimeModeAuto()
     if ( startTimeModeAuto == -1 ) then -- will only run in the first time we enter AUTO mode
-        --gcs:send_text(6, "[motorDownDetector.lua] starting to count startTimeModeAuto")
+        --gcs:send_text(6, "[motorDownDetection] starting to count startTimeModeAuto")
         startTimeModeAuto = millis()
     end
 end
@@ -253,7 +262,7 @@ local function motorDownDetection()
         if (timeSinceAutoOverflow()) then return end-- if 'timeSinceAuto' overflows, we return
 
         if (checkTakeoffStatus()) then              -- true means "taking off", false otherwise
-            --gcs:send_text(6, "[motorDownDetector.lua] inside WAIT_TIME_MODE_AUTO_MS")
+            --gcs:send_text(6, "[motorDownDetection] inside WAIT_TIME_MODE_AUTO_MS")
             if (not isAircraftOK()) then
                 motorDownAction()
             end
@@ -272,6 +281,9 @@ local function main()
     return main, loop_time
 end
 
-gcs:send_text(6, "[motorDownDetection.lua] Started motorDownDetection.lua !")
+gcs:send_text(6, string.format("[motorDownDetection] Started motorDownDetection.lua !"))
+gcs:send_text(6, string.format("[motorDownDetection] RP Angles = %.1f,%.1f"      ,ROLL_ANGLE_THRESH   , PITCH_ANGLE_THRESH))
+gcs:send_text(6, string.format("[motorDownDetection] RPY Rates = %.2f,%.2f,%.2f" ,ROLL_RATE_THRESH    , PITCH_RATE_THRESH, YAW_RATE_THRESH))
+gcs:send_text(6, string.format("[motorDownDetection] PWM Values= (%d,%d)"        ,MOTOR_PWM_THRESH_MIN, MOTOR_PWM_THRESH_MAX))
 
 return main() -- run immediately after the script is launched
