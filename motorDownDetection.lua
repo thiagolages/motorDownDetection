@@ -14,6 +14,9 @@
 -- Run script at this amount of millisecond interval
 local loop_time     = 10 -- milliseconds. 1/10ms = 100Hz
 
+-- enable debugging
+local isDebug       = false                      -- use only when debugging
+
 -- Motors channels and values
 local numMotors             = 6                         -- total number of motors
 local motorsPWM             = { -1, -1, -1, -1, -1, -1} -- motorsPWM array
@@ -74,8 +77,22 @@ local PITCH_RATE_THRESH     = 0.80
 local YAW_RATE_THRESH       = 0.80
 
 -- Safety check by motor PWM (microsseconds)
-local MOTOR_PWM_THRESH_MIN  = 1300
-local MOTOR_PWM_THRESH_MAX  = 1800
+-- MOT_PWM
+local MOT_PWM_MIN = param:get("MOT_PWM_MIN")
+local MOT_PWM_MAX = param:get("MOT_PWM_MAX")
+
+-- MOT_SPIN
+local MOT_SPIN_MIN = param:get("MOT_SPIN_MIN")
+local MOT_SPIN_MAX = param:get("MOT_SPIN_MAX")
+
+-- THRESHOLDS
+local PWMRange          = math.floor( MOT_PWM_MAX - MOT_PWM_MIN )               -- PWM range used in calculations
+local motSpinMinPWM     = MOT_PWM_MIN + math.floor( MOT_SPIN_MIN*PWMRange )     -- Motor minimum spin PWM value, corrected using MOT_SPIN_MIN
+local PWMoffsetFromMin  = 100                                                   -- Absolute value to add to motSpinMinPWM to consider a motor failure. Calculate from logs.
+
+-- Safety check by motor PWM (microsseconds)
+local MOTOR_PWM_THRESH_MIN  = motSpinMinPWM + PWMoffsetFromMin                  -- Threshold considers corrected spin min and adds an offset.   Minimum value in crash log: 1284
+local MOTOR_PWM_THRESH_MAX  = 1800                                              -- Using absolute value for max threshold.                      Maximum value in crash log: 1898
 
 ---------------
 -- Functions --
@@ -108,7 +125,7 @@ end
 -- Checks if Roll, Pith and Yaw angles are within the normal range (in degrees). Returns true if all is OK
 local function RPAnglesOK()
     local anglesOK = (math.abs(roll) <= ROLL_ANGLE_THRESH and math.abs(pitch) <= PITCH_ANGLE_THRESH)
-    if (not anglesOK) then -- print cause of motor stop detection
+    if (debug and not anglesOK) then -- print cause of motor stop detection
        gcs:send_text(6, string.format("[motorDownDetection] rpy = %.2f,%.2f,%.2f", roll, pitch, yaw))
        gcs:send_text(6, string.format("[motorDownDetection] rp threshold (abs) = %.2f,%.2f", ROLL_ANGLE_THRESH, PITCH_ANGLE_THRESH))
     end
@@ -118,7 +135,7 @@ end
 -- Checks if Roll, Pith and Yaw rates (angular velocities) are within the normal range (in radians/s). Returns true if all is OK
 local function RPYRatesOK()
     local ratesOK = (math.abs(roll_rate) <= ROLL_RATE_THRESH and math.abs(pitch_rate) <= PITCH_RATE_THRESH and math.abs(yaw_rate) <= YAW_RATE_THRESH)
-    if (not ratesOK) then -- print cause of motor stop detection
+    if (debug and not ratesOK) then -- print cause of motor stop detection
        gcs:send_text(6, string.format("[motorDownDetection] rpyRates = %.2f,%.2f,%.2f", roll_rate, pitch_rate, yaw_rate))
        gcs:send_text(6, string.format("[motorDownDetection] rpyRates threshold (abs) = %.2f,%.2f,%.2f", ROLL_RATE_THRESH, PITCH_RATE_THRESH, YAW_RATE_THRESH))
     end
@@ -133,11 +150,15 @@ local function isMotorPWMOK(motorNum, motorPWM)
             --gcs:send_text(6, string.format("[motorDownDetection] motor %d is OK, PWM = %d", motorNum, motorPWM ))    
             return true
         else
-            --gcs:send_text(6, string.format("[motorDownDetection] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
+            if(isDebug) then
+                gcs:send_text(6, string.format("[motorDownDetection] motor %d is NOT OK, PWM = %d", motorNum, motorPWM ))
+            end
             return false
         end
     else
-        gcs:send_text(6, string.format("[motorDownDetection] PWM from motor %d is nil", motorNum))
+        if(isDebug) then
+            gcs:send_text(6, string.format("[motorDownDetection] PWM from motor %d is nil", motorNum))
+        end
         return true -- return true because we don't have information on it
     end
 
@@ -173,8 +194,10 @@ local function areMotorsPWMOK()
             local timeSinceMotorDown = millis() - startTimeMotorDown
 
             if(timeSinceMotorDown >= WAIT_TIME_MOTOR_DOWN_MS) then
-                gcs:send_text(6, string.format("[motorDownDetection] Duration of PWM value is >= %d ms!",WAIT_TIME_MOTOR_DOWN_MS))
-                gcs:send_text(6, string.format("[motorDownDetection] Motors PWM min/max threshold = %d, %d", MOTOR_PWM_THRESH_MIN, MOTOR_PWM_THRESH_MAX))
+                if(isDebug) then
+                    gcs:send_text(6, string.format("[motorDownDetection] Duration of PWM value is >= %d ms!",WAIT_TIME_MOTOR_DOWN_MS))
+                    gcs:send_text(6, string.format("[motorDownDetection] Motors PWM min/max threshold = %d, %d", MOTOR_PWM_THRESH_MIN, MOTOR_PWM_THRESH_MAX))
+                end
                 return false
             else -- if motors are not outside PWM range for at least WAIT_TIME_MOTOR_DOWN_MS, we are ok
                 return true
@@ -285,5 +308,9 @@ gcs:send_text(6, string.format("[motorDownDetection] Started motorDownDetection.
 gcs:send_text(6, string.format("[motorDownDetection] RP Angles = %.1f,%.1f"      ,ROLL_ANGLE_THRESH   , PITCH_ANGLE_THRESH))
 gcs:send_text(6, string.format("[motorDownDetection] RPY Rates = %.2f,%.2f,%.2f" ,ROLL_RATE_THRESH    , PITCH_RATE_THRESH, YAW_RATE_THRESH))
 gcs:send_text(6, string.format("[motorDownDetection] PWM Values= (%d,%d)"        ,MOTOR_PWM_THRESH_MIN, MOTOR_PWM_THRESH_MAX))
+if (isDebug) then
+    gcs:send_text(6, string.format("[motorDownDetection] MOT_PWM_MIN,MOT_PWM_MAX Values = (%d,%d)"       ,MOT_PWM_MIN,  MOT_PWM_MAX))
+    gcs:send_text(6, string.format("[motorDownDetection] MOT_SPIN_MIN,MOT_SPIN_MAX Values = (%.2f,%.2f)" ,MOT_SPIN_MIN, MOT_SPIN_MAX))
+end
 
 return main() -- run immediately after the script is launched
